@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    
+    <h1>Record Camera Output</h1>
+    <button onclick="startRecording(180)">Full Match (3 mins)</button>
+    <button onclick="startRecording(120)">Practice Match (2 mins)</button>
+    <button onclick="startRecording(10)">Test (10 secs)</button>
+
+    <h2>My Recordings</h2>
+    <ul id="recordings-list">
+        <!-- Rec list-->
+    </ul>
+
+    <a href="/live-feed">View Live Feed</a>
+
+    <script>
+        const clientId = generateClientId();
+    
+        function startRecording(duration) {
+            fetch('/start-recording', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ duration: duration, client_id: clientId }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.status);
+                alert('Recording started, folder: ' + data.folder);
+                checkNotification();
+            });
+        }
+    
+        function checkNotification() {
+            fetch('/check-notification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ client_id: clientId }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'done') {
+                    alert('Recording finished!');
+                    addRecordingLink(data.link);
+                } else {
+                    setTimeout(checkNotification, 2000);
+                }
+            });
+        }
+    
+        function addRecordingLink(link) {
+            const recordingsList = document.getElementById('recordings-list');
+            const listItem = document.createElement('li');
+            const anchor = document.createElement('a');
+            anchor.href = link;
+            anchor.textContent = link;
+            anchor.target = '_blank';
+            listItem.appendChild(anchor);
+            recordingsList.appendChild(listItem);
+    
+            // Save to local storage cuh
+            saveRecordingToLocalStorage(link);
+        }
+    
+        function saveRecordingToLocalStorage(link) {
+            let recordings = JSON.parse(localStorage.getItem('recordings')) || [];
+            recordings.push(link);
+            // Rmvs dupes before saving lol
+            recordings = removeDuplicates(recordings);
+            localStorage.setItem('recordings', JSON.stringify(recordings));
+        }
+    
+        function loadRecordings() {
+            let recordings = JSON.parse(localStorage.getItem('recordings')) || [];
+            recordings = removeDuplicates(recordings); // i wana kms
+            recordings.forEach(link => {
+                addRecordingLink(link);
+            });
+        }
+    
+        function removeDuplicates(arr) {
+            return [...new Set(arr)];
+        }
+    
+        function generateClientId() {
+            return '_' + Math.random().toString(36).substr(2, 9);
+        }
+    
+        window.onload = loadRecordings;
+    </script>
+    
+</body>
+</html>
