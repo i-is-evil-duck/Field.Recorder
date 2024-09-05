@@ -7,6 +7,7 @@ import threading
 import time
 from datetime import datetime
 import tkinter as tk
+from werkzeug.serving import make_server
 
 app = Flask(__name__)
 
@@ -153,7 +154,7 @@ def serve_clip(clip_id, clip_file):
     return send_from_directory(clip_path, clip_file, mimetype='video/mp4')
 
 # Function to display the "Starting Server" window and update to "Server is Running"
-def show_status_window():
+def show_status_window(shutdown_event):
     root = tk.Tk()
     root.title("Server Status")
     root.geometry("300x100")
@@ -166,16 +167,45 @@ def show_status_window():
         status_label.config(text=message)
         root.update_idletasks()
 
-    # Show the window
+    # Update to "Server is Running" after 500ms
     root.after(500, lambda: update_status_message("Server is Running"))
+    
+    # Close event handler to set shutdown event and stop server
+    def on_closing():
+        shutdown_event.set()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
+def run_flask_app(shutdown_event):
+    def run():
+        app.clients = {}
+        # Run the Flask app
+        server = make_server('0.0.0.0', 5000, app)
+        threading.Thread(target=server.serve_forever).start()
+        
+        # Wait for shutdown event
+        shutdown_event.wait()
+        
+        # Shutdown the server
+        server.shutdown()
+        server.server_close()
+
+    # Start Flask server in a separate thread
+    flask_thread = threading.Thread(target=run)
+    flask_thread.start()
+    flask_thread.join()
+
 if __name__ == '__main__':
-    # Start the GUI window in a separate thread
-    window_thread = threading.Thread(target=show_status_window)
+    shutdown_event = threading.Event()
+
+    # Start the GUI window
+    window_thread = threading.Thread(target=show_status_window, args=(shutdown_event,))
     window_thread.start()
     
-    app.clients = {}
-    
-    # Run the Flask app
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Start the Flask server
+    run_flask_app(shutdown_event)
+
+    # Ensure both threads complete
+    window_thread.join()
