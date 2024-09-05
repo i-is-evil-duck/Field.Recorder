@@ -6,6 +6,7 @@ import string
 import threading
 import time
 from datetime import datetime
+import tkinter as tk
 
 app = Flask(__name__)
 
@@ -151,6 +152,30 @@ def serve_clip(clip_id, clip_file):
         return abort(404)
     return send_from_directory(clip_path, clip_file, mimetype='video/mp4')
 
+# Function to display the "Starting Server" window and update to "Server is Running"
+def show_status_window():
+    root = tk.Tk()
+    root.title("Server Status")
+    root.geometry("300x100")
+    
+    status_label = tk.Label(root, text="Starting Server", padx=20, pady=20)
+    status_label.pack()
+    
+    # Function to update the status message
+    def update_status_message(message):
+        status_label.config(text=message)
+        root.update_idletasks()
+
+    # Show the window
+    root.after(500, lambda: update_status_message("Server is Running"))
+    root.mainloop()
+
 if __name__ == '__main__':
+    # Start the GUI window in a separate thread
+    window_thread = threading.Thread(target=show_status_window)
+    window_thread.start()
+    
     app.clients = {}
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    # Run the Flask app
+    app.run(host='0.0.0.0', port=5000, debug=False)
